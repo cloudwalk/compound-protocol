@@ -9,7 +9,7 @@ import "./ComptrollerStorage.sol";
 
 /**
  * @title CloudWalk's Comptroller Contract
- * @author Compound
+ * @author CloudWalk
  */
 contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, ComptrollerErrorReporter, ExponentialNoError {
     /// @notice Emitted when an admin supports a market
@@ -876,9 +876,8 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
         }
 
         cToken.isCToken(); // Sanity check to make sure its really a CToken
-
-        // Note that isComped is not in active use anymore
-        markets[address(cToken)] = Market({isListed: true, isComped: false, collateralFactorMantissa: 0});
+        
+        markets[address(cToken)] = Market({isListed: true, collateralFactorMantissa: 0});
 
         _addMarketInternal(address(cToken));
 
@@ -893,7 +892,6 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
         }
         allMarkets.push(CToken(cToken));
     }
-
 
     /**
       * @notice Set the given borrow caps for the given cToken markets. Borrowing that brings total borrows to or above borrow cap will revert.
@@ -995,13 +993,6 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
     function _become(Unitroller unitroller) public {
         require(msg.sender == unitroller.admin(), "only unitroller admin can change brains");
         require(unitroller._acceptImplementation() == 0, "change not authorized");
-    }
-
-    /**
-     * @notice Checks caller is admin, or this contract is becoming the new implementation
-     */
-    function adminOrInitializing() internal view returns (bool) {
-        return msg.sender == admin || msg.sender == comptrollerImplementation;
     }
 
     /**
