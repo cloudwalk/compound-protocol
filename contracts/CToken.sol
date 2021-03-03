@@ -1,5 +1,6 @@
 pragma solidity ^0.5.16;
 
+import "./CloudWalk/CWComptrollerInterface.sol";
 import "./ComptrollerInterface.sol";
 import "./CTokenInterfaces.sol";
 import "./ErrorReporter.sol";
@@ -525,7 +526,13 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          *  in case of a fee. On success, the cToken holds an additional `actualMintAmount`
          *  of cash.
          */
-        vars.actualMintAmount = doTransferIn(minter, mintAmount);
+
+        (
+            bool isTrusted,             
+            address collateralBank
+        ) = checkForTrustedMint(minter, mintAmount);        
+        address transferInFrom = isTrusted ? collateralBank : minter;        
+        vars.actualMintAmount = doTransferIn(transferInFrom, mintAmount);
 
         /*
          * We get the current exchange rate and calculate the number of cTokens to be minted:
@@ -690,7 +697,13 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          *  On success, the cToken has redeemAmount less of cash.
          *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
          */
-        doTransferOut(redeemer, vars.redeemAmount);
+
+        (
+            bool isTrusted, 
+            address payable collatoralBank
+        ) = checkForTrustedRedeem(redeemer, vars.redeemAmount);
+        address payable transferOutTo = isTrusted ? collatoralBank : redeemer;
+        doTransferOut(transferOutTo, vars.redeemAmount);
 
         /* We write previously calculated values into storage */
         totalSupply = vars.totalSupplyNew;
@@ -1159,6 +1172,11 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         // Ensure invoke comptroller.isComptroller() returns true
         require(newComptroller.isComptroller(), "marker method returned false");
 
+        // Ensure invoke comptroller.isCWComptroller() returns true
+        require(
+            CWComptrollerInterface(address(newComptroller)).isCWComptroller(), 
+            "must be CWComptroller");
+
         // Set market's comptroller to newComptroller
         comptroller = newComptroller;
 
@@ -1425,4 +1443,28 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         _;
         _notEntered = true; // get a gas-refund post-Istanbul
     }
+
+    /*** Trusted ***/
+
+    function checkForTrustedMint(address minter, uint mintAmount) public returns (bool, address) {
+        CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
+        if (cwComptroller.isTrustedMint(address(this), minter, mintAmount)) {
+            address bankAddress = cwComptroller.collateralBankAddress(address(this));  
+            require(bankAddress != address(0), "trusted bank address");   
+            return (true, bankAddress);
+        } else {
+            return (false, address(0));
+        }                        
+    }
+
+    function checkForTrustedRedeem(address payable redeemer, uint redeemAmount) public returns (bool, address payable) {      
+        CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));  
+        if (cwComptroller.isTrustedRedeem(address(this), redeemer, redeemAmount)) {
+            address payable bankAddress = cwComptroller.collateralBankAddress(address(this));
+            require(bankAddress != address(0), "trusted bank address");           
+            return (true, bankAddress);
+        } else {
+            return (false, address(0));        
+        }                               
+    }    
 }
