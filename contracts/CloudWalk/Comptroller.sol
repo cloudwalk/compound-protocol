@@ -3,15 +3,16 @@ pragma solidity ^0.5.16;
 import "../CToken.sol";
 import "../ErrorReporter.sol";
 import "../PriceOracle.sol";
-import "../ComptrollerInterface.sol";
 import "../Unitroller.sol";
-import "./ComptrollerStorage.sol";
+import "../ComptrollerInterface.sol";
+import "./CWComptrollerStorage.sol";
+import "./CWComptrollerInterface.sol";
 
 /**
  * @title CloudWalk's Comptroller Contract
  * @author CloudWalk
  */
-contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, ComptrollerErrorReporter, ExponentialNoError {
+contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptrollerInterface, ComptrollerErrorReporter, ExponentialNoError {
     /// @notice Emitted when an admin supports a market
     event MarketListed(CToken cToken);
 
@@ -47,6 +48,23 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
 
     /// @notice Emitted when borrow cap guardian is changed
     event NewBorrowCapGuardian(address oldBorrowCapGuardian, address newBorrowCapGuardian);        
+
+    /// @notice Emitted when collateral bank is changed
+    event NewCollateralBank(CToken cToken, address oldBank, address newBank);         
+
+    /// @notice Emitted when untrusted borrowers are allowed/disallowed
+    event AllowUntrustedBorrowers(CToken cToken, bool oldAllow, bool newAllow);
+
+    /// @notice Emitted when untrusted suppliers are allowed/disallowed
+    event AllowUntrustedSuppliers(CToken cToken, bool oldAllow, bool newAllow);    
+
+    /// @notice Emitted when trusted borrower configuration is changed
+    event SetTrustedBorrower(CToken cToken, address account, bool oldExists, uint oldAllowance, bool exists, uint allowance);   
+
+    /// @notice Emitted when trusted supplier configuration is changed
+    event SetTrustedSupplier(CToken cToken, address account, bool oldExists, uint oldAllowance, bool exists, uint allowance);   
+
+    
 
     // closeFactorMantissa must be strictly greater than this value
     uint internal constant closeFactorMinMantissa = 0.05e18; // 0.05
@@ -214,7 +232,35 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
             return uint(Error.MARKET_NOT_LISTED);
         }        
 
-        return uint(Error.NO_ERROR);
+        if (markets[cToken].trustedBorrowers[minter].exists) {                        
+            (uint oErr, uint canBorrowAmount) = canTrustBorrowAmountInternal(cToken, minter, markets[cToken].trustedBorrowers[minter].allowance);
+            if (oErr != 0) { 
+                return oErr;
+            }  
+
+            if (canBorrowAmount < mintAmount) {
+                return uint(Error.BORROW_BALANCE_OVERFLOW);
+            }                        
+
+            return uint(Error.NO_ERROR);            
+        }   
+
+        if (markets[cToken].trustedSuppliers[minter].exists) {
+            (uint oErr, uint canSupplyAmount) = canTrustSupplyAmountInternal(cToken, minter, markets[cToken].trustedSuppliers[minter].allowance);
+            if (oErr != 0) { 
+                return oErr;
+            }  
+
+            if (canSupplyAmount < mintAmount) {
+                return uint(Error.SUPPLY_BALANCE_OVERFLOW);
+            }                        
+
+            return uint(Error.NO_ERROR);
+        }                       
+
+        return !markets[cToken].allowUntrustedSuppliers
+            ? uint(Error.SUPPLY_UNTRUSTED_ACCOUNT)
+            : uint(Error.NO_ERROR);
     }
 
     /**
@@ -326,7 +372,6 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
             return uint(Error.PRICE_ERROR);
         }
 
-
         uint borrowCap = borrowCaps[cToken];
         // Borrow cap of 0 corresponds to unlimited borrowing
         if (borrowCap != 0) {
@@ -343,7 +388,9 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
             return uint(Error.INSUFFICIENT_LIQUIDITY);
         }          
 
-        return uint(Error.NO_ERROR);
+        return !(markets[cToken].trustedBorrowers[borrower].exists || markets[cToken].allowUntrustedBorrowers)
+            ? uint(Error.BORROW_UNTRUSTED_ACCOUNT)
+            : uint(Error.NO_ERROR);        
     }
 
     /**
@@ -877,7 +924,12 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
 
         cToken.isCToken(); // Sanity check to make sure its really a CToken
         
-        markets[address(cToken)] = Market({isListed: true, collateralFactorMantissa: 0});
+        markets[address(cToken)] = Market({
+            isListed: true, 
+            allowUntrustedBorrowers: false, 
+            allowUntrustedSuppliers: false, 
+            collateralBankAddress: address(0), 
+            collateralFactorMantissa: 0});
 
         _addMarketInternal(address(cToken));
 
@@ -1007,4 +1059,108 @@ contract CWComptroller is CWComptrollerV1Storage, ComptrollerInterface, Comptrol
     function getBlockNumber() public view returns (uint) {
         return block.number;
     }
+
+    /*** Trusted Borrows ***/    
+
+    function collateralBankAddress(address cToken) public view returns (address payable) {
+        return address(uint160(markets[cToken].collateralBankAddress));
+    }
+
+    function isTrustedMint(address cToken, address minter, uint mintAmount) external view returns (bool) {     
+        /// @notice mintAllowed() decides if mint should be allowed   
+        return markets[cToken].trustedBorrowers[minter].exists;
+    }
+
+    function isTrustedRedeem(address cToken, address payable redeemer, uint redeemAmount) external view returns (bool) {     
+        /// @notice redeemAllowed() decides if redeed should be allowed
+        return markets[cToken].trustedBorrowers[redeemer].exists;
+    }    
+
+    function _setCollateralBank(CToken cToken, address newBank) public {
+        require(markets[address(cToken)].isListed, "market is not listed");        
+        require(msg.sender == admin, "only admin can set");
+
+        address oldBank = markets[address(cToken)].collateralBankAddress;
+        markets[address(cToken)].collateralBankAddress = newBank;
+        emit NewCollateralBank(cToken, oldBank, newBank);        
+    }    
+
+    function _setAllowUntrustedBorrowers(CToken cToken, bool allow) public {
+        require(markets[address(cToken)].isListed, "market is not listed");                
+        require(msg.sender == admin, "only admin can allow untrusted borrowers");
+
+        if(markets[address(cToken)].allowUntrustedBorrowers != allow) {
+            markets[address(cToken)].allowUntrustedBorrowers = allow;   
+            emit AllowUntrustedBorrowers(cToken, !allow, allow);
+        } else {
+            emit AllowUntrustedBorrowers(cToken, allow, allow); 
+        }        
+    }
+
+    function _setAllowUntrustedSuppliers(CToken cToken, bool allow) public {
+        require(markets[address(cToken)].isListed, "market is not listed");                
+        require(msg.sender == admin, "only admin can allow untrusted suppliers");
+
+        if(markets[address(cToken)].allowUntrustedSuppliers != allow) {
+            markets[address(cToken)].allowUntrustedSuppliers = allow;   
+            emit AllowUntrustedSuppliers(cToken, !allow, allow);
+        } else {
+            emit AllowUntrustedSuppliers(cToken, allow, allow); 
+        }        
+    }    
+
+    function _setTrustedBorrower(CToken cToken, address account, bool exists, uint allowance) public {
+        require(msg.sender == admin, "only admin can configure trusted borrowers");
+        require(!markets[address(cToken)].trustedSuppliers[account].exists, "already supplier");
+
+        bool oldExists = markets[address(cToken)].trustedBorrowers[account].exists;
+        uint oldAllowance = markets[address(cToken)].trustedBorrowers[account].allowance;
+
+        markets[address(cToken)].trustedBorrowers[account].exists = exists;
+        markets[address(cToken)].trustedBorrowers[account].allowance = allowance;
+
+        emit SetTrustedBorrower(cToken, account, oldExists, oldAllowance, exists, allowance);         
+    }    
+
+    function _setTrustedSupplier(CToken cToken, address account, bool exists, uint allowance) public {
+        require(msg.sender == admin, "only admin can configure trusted suppliers");
+        require(!markets[address(cToken)].trustedBorrowers[account].exists, "already borrower");
+
+        bool oldExists = markets[address(cToken)].trustedSuppliers[account].exists;
+        uint oldAllowance = markets[address(cToken)].trustedSuppliers[account].allowance;
+
+        markets[address(cToken)].trustedSuppliers[account].exists = exists;
+        markets[address(cToken)].trustedSuppliers[account].allowance = allowance;
+
+        emit SetTrustedSupplier(cToken, account, oldExists, oldAllowance, exists, allowance);         
+    }
+
+    function getTrustedSupplier(address cToken, address supplier) external view returns (bool, uint, uint) {             
+        TrustedAccount memory trustedSupplier = markets[cToken].trustedSuppliers[supplier];
+        (, uint canSupplyAmount) = canTrustSupplyAmountInternal(cToken, supplier, trustedSupplier.allowance); 
+        return (trustedSupplier.exists, trustedSupplier.allowance, canSupplyAmount);
+    }     
+
+    function getTrustedBorrower(address cToken, address borrower) external view returns (bool, uint, uint) {    
+        TrustedAccount memory trustedBorrower = markets[cToken].trustedBorrowers[borrower];         
+        (,uint canBorrowAmount) = canTrustBorrowAmountInternal(cToken, borrower, trustedBorrower.allowance);
+        return (trustedBorrower.exists, trustedBorrower.allowance, canBorrowAmount);
+    }
+
+    function canTrustSupplyAmountInternal(address cToken, address supplier, uint allowance) internal view returns (uint, uint) {
+        // Read the balances and exchange rate from the cToken
+        (uint oErr, uint cTokenBalance, , uint exchangeRateMantissa) = CToken(cToken).getAccountSnapshot(supplier);
+        if (oErr != 0) { // semi-opaque error code, we assume NO_ERROR == 0 is invariant between upgrades
+            return (uint(Error.SNAPSHOT_ERROR), 0);
+        }   
+        uint uderlyingBalance = mul_ScalarTruncate(Exp({mantissa: exchangeRateMantissa}), cTokenBalance);  
+        uint canSupplyAmount = allowance > uderlyingBalance ? allowance - uderlyingBalance : 0;
+        return (uint(Error.NO_ERROR), canSupplyAmount);
+    }     
+
+    function canTrustBorrowAmountInternal(address cToken, address borrower, uint allowance) internal view returns (uint, uint) {
+        uint borrowBalance = CToken(cToken).borrowBalanceStored(borrower);
+        uint canBorrowAmount = allowance > borrowBalance ? allowance - borrowBalance : 0;
+        return (uint(Error.NO_ERROR), canBorrowAmount);
+    }    
 }
