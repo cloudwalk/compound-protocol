@@ -9,4 +9,8 @@ contract CWComptrollerInterface {
     function isTrustedMint(address cToken, address minter, uint mintAmount) external view returns (bool);
 
     function isTrustedRedeem(address cToken, address payable redeemer, uint redeemAmount) external view returns (bool);        
+
+    function calculateTrustedMintAmount(address cToken, address borrower, uint borrowAmount) external view returns (uint, uint);
+
+    function calculateTrustedRedeemAmount(address cToken, address repayer, uint repayAmount) external view returns (uint, uint);
 }
