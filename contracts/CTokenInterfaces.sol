@@ -25,10 +25,10 @@ contract CTokenStorage {
     uint8 public decimals;
 
     /**
-     * @notice Maximum borrow rate that can ever be applied (.0005% / block)
+     * @notice Maximum borrow rate that can ever be applied (.005% / block)
      */
 
-    uint internal constant borrowRateMaxMantissa = 0.0005e16;
+    uint internal constant borrowRateMaxMantissa = 0.005e16;
 
     /**
      * @notice Maximum fraction of interest that can be set aside for reserves
