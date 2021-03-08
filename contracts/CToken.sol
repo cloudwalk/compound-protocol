@@ -528,10 +528,10 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          */
 
         (
-            bool isTrusted,             
+            bool isTrusted,
             address collateralBank
-        ) = checkForTrustedMint(minter, mintAmount);        
-        address transferInFrom = isTrusted ? collateralBank : minter;        
+        ) = checkForTrustedMint(minter, mintAmount);
+        address transferInFrom = isTrusted ? collateralBank : minter;
         vars.actualMintAmount = doTransferIn(transferInFrom, mintAmount);
 
         /*
@@ -699,7 +699,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          */
 
         (
-            bool isTrusted, 
+            bool isTrusted,
             address payable collatoralBank
         ) = checkForTrustedRedeem(redeemer, vars.redeemAmount);
         address payable transferOutTo = isTrusted ? collatoralBank : redeemer;
@@ -1449,24 +1449,24 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
     function checkForTrustedMint(address minter, uint mintAmount) public returns (bool, address) {
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
         if (cwComptroller.isTrustedMint(address(this), minter, mintAmount)) {
-            address bankAddress = cwComptroller.collateralBankAddress(address(this));  
-            require(bankAddress != address(0), "trusted bank address");   
+            address bankAddress = cwComptroller.collateralBankAddress(address(this));
+            require(bankAddress != address(0), "trusted bank address");
             return (true, bankAddress);
         } else {
             return (false, address(0));
-        }                        
+        }
     }
 
-    function checkForTrustedRedeem(address payable redeemer, uint redeemAmount) public returns (bool, address payable) {      
-        CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));  
+    function checkForTrustedRedeem(address payable redeemer, uint redeemAmount) public returns (bool, address payable) {
+        CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
         if (cwComptroller.isTrustedRedeem(address(this), redeemer, redeemAmount)) {
             address payable bankAddress = cwComptroller.collateralBankAddress(address(this));
-            require(bankAddress != address(0), "trusted bank address");           
+            require(bankAddress != address(0), "trusted bank address");
             return (true, bankAddress);
         } else {
-            return (false, address(0));        
-        }                               
-    }    
+            return (false, address(0));
+        }
+    }
 
     /**
       * @notice Trusted sender borrows assets from the protocol to their own address

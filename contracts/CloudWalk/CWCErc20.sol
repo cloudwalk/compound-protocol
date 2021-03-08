@@ -45,7 +45,7 @@ contract CWCErc20 is CErc20, CWCErc20Interface {
       */
     function trustedBorrow(uint borrowAmount) external returns (uint) {
         (uint err,) = trustedBorrowInternal(borrowAmount);
-        return err;        
+        return err;
     }
 
     /**
@@ -56,5 +56,5 @@ contract CWCErc20 is CErc20, CWCErc20Interface {
     function trustedRepayBorrow(uint repayAmount) external returns (uint) {
         (uint err,) = trustedRepayBorrowInternal(repayAmount);
         return err;
-    }    
+    }
 }

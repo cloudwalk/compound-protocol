@@ -6,7 +6,7 @@ import "../ComptrollerStorage.sol";
 contract CWComptrollerV2Storage is ComptrollerV1Storage {
     /// @notice Trusted account borrow allowance
     struct TrustedAccount {
-        uint allowance;        
+        uint allowance;
         bool exists;
     }
 
@@ -27,17 +27,17 @@ contract CWComptrollerV2Storage is ComptrollerV1Storage {
         /// @notice Whether or not this market allow untrusted suppliers
         bool allowUntrustedSuppliers;
 
-        /// @notice Address of collateral bank for trusted borrows 
-        address collateralBankAddress;        
+        /// @notice Address of collateral bank for trusted borrows
+        address collateralBankAddress;
 
         /// @notice Per-market mapping of "accounts in this asset"
-        mapping(address => bool) accountMembership;        
+        mapping(address => bool) accountMembership;
 
-        /// @notice Per-market mapping of "trusted" borrower 
+        /// @notice Per-market mapping of "trusted" borrower
         mapping(address => TrustedAccount) trustedBorrowers;
 
         /// @notice Per-market mapping of "trusted" supplier
-        mapping(address => TrustedAccount) trustedSuppliers;        
+        mapping(address => TrustedAccount) trustedSuppliers;
     }
 
     /**
@@ -60,9 +60,9 @@ contract CWComptrollerV2Storage is ComptrollerV1Storage {
     mapping(address => bool) public borrowGuardianPaused;
 }
 
-contract CWComptrollerV3Storage is CWComptrollerV2Storage {    
+contract CWComptrollerV3Storage is CWComptrollerV2Storage {
     /// @notice A list of all markets
-    CToken[] public allMarkets;    
+    CToken[] public allMarkets;
 }
 
 contract CWComptrollerV4Storage is CWComptrollerV3Storage {

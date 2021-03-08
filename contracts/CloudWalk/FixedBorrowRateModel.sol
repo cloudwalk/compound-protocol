@@ -4,14 +4,14 @@ import "../InterestRateModel.sol";
 import "../SafeMath.sol";
 
 contract FixedBorrowRateModel is InterestRateModel {
-    using SafeMath for uint;    
+    using SafeMath for uint;
 
     event NewInterestParams(uint baseRatePerBlock);
 
     /**
      * @notice The approximate number of blocks per year that is assumed by the interest rate model
      */
-    uint public constant blocksPerYear = 2102400;    
+    uint public constant blocksPerYear = 2102400;
 
     /**
      * @notice The base interest rate which is the y-intercept when utilization rate is 0
@@ -20,10 +20,10 @@ contract FixedBorrowRateModel is InterestRateModel {
 
     /**
      * @notice Construct an interest rate model
-     * @param baseRatePerYear The approximate target base APR, as a mantissa (scaled by 1e18)     
+     * @param baseRatePerYear The approximate target base APR, as a mantissa (scaled by 1e18)
      */
     constructor(uint baseRatePerYear) public {
-        baseRatePerBlock = baseRatePerYear.div(blocksPerYear);        
+        baseRatePerBlock = baseRatePerYear.div(blocksPerYear);
         emit NewInterestParams(baseRatePerBlock);
     }
 
@@ -49,7 +49,7 @@ contract FixedBorrowRateModel is InterestRateModel {
      * @param reserves The amount of reserves in the market
      * @return The borrow rate percentage per block as a mantissa (scaled by 1e18)
      */
-    function getBorrowRate(uint cash, uint borrows, uint reserves) public view returns (uint) {        
+    function getBorrowRate(uint cash, uint borrows, uint reserves) public view returns (uint) {
         return baseRatePerBlock;
     }
 

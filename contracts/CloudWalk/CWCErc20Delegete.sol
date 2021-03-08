@@ -9,5 +9,5 @@ import "./CWCErc20.sol";
  * @author CloudWalk
  */
 contract CWCErc20Delegate is CWCErc20,  CErc20Delegate {
-    
+
 }

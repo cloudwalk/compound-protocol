@@ -43,7 +43,7 @@ contract CWCErc20Delegator is CErc20Delegator, CWCErc20Interface {
                     decimals_,
                     admin_,
                     implementation_,
-                    becomeImplementationData) public { } 
+                    becomeImplementationData) public { }
 
     /**
       * @notice Trusted sender borrows assets from the protocol to their own address
@@ -53,7 +53,7 @@ contract CWCErc20Delegator is CErc20Delegator, CWCErc20Interface {
     function trustedBorrow(uint borrowAmount) external returns (uint) {
         bytes memory data = delegateToImplementation(abi.encodeWithSignature("trustedBorrow(uint256)", borrowAmount));
         return abi.decode(data, (uint));
-    }    
+    }
 
     /**
      * @notice Trusted sender repays their own borrow
@@ -63,5 +63,5 @@ contract CWCErc20Delegator is CErc20Delegator, CWCErc20Interface {
     function trustedRepayBorrow(uint repayAmount) external returns (uint) {
         bytes memory data = delegateToImplementation(abi.encodeWithSignature("trustedRepayBorrow(uint256)", repayAmount));
         return abi.decode(data, (uint));
-    }                    
+    }
 }
