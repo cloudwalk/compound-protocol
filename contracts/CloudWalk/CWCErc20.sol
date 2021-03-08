@@ -44,7 +44,8 @@ contract CWCErc20 is CErc20, CWCErc20Interface {
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
     function trustedBorrow(uint borrowAmount) external returns (uint) {
-        return trustedBorrowInternal(borrowAmount);
+        (uint err,) = trustedBorrowInternal(borrowAmount);
+        return err;        
     }
 
     /**

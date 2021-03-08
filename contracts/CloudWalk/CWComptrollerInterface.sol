@@ -10,7 +10,7 @@ contract CWComptrollerInterface {
 
     function isTrustedRedeem(address cToken, address payable redeemer, uint redeemAmount) external view returns (bool);        
 
-    function calculateTrustedMintAmount(address cToken, address borrower, uint borrowAmount) external view returns (uint, uint);
+    function calculateTrustedMintAmount(address cToken, address borrower, uint borrowAmount) external view returns (uint, uint, uint);
 
-    function calculateTrustedRedeemAmount(address cToken, address repayer, uint repayAmount) external view returns (uint, uint);
+    function calculateTrustedRedeemAmount(address cToken, address repayer, uint repayAmount) external view returns (uint, uint, uint);
 }

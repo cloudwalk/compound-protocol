@@ -1467,4 +1467,60 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
             return (false, address(0));        
         }                               
     }    
+
+    /**
+      * @notice Trusted sender borrows assets from the protocol to their own address
+      * @param borrowAmount The amount of the underlying asset to borrow
+      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details), and the actual mint amount.
+      */
+    function trustedBorrowInternal(uint borrowAmount) internal nonReentrant returns (uint, uint) {
+        uint accrueError = accrueInterest();
+        if (accrueError != uint(Error.NO_ERROR)) {
+            // accrueInterest emits logs on errors
+            return (fail(Error(accrueError), FailureInfo.TRUSTED_BORROW_ACCRUE_INTEREST_FAILED), 0);
+        }
+
+        /* Fail if calculate collateral fails*/
+        CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
+        (uint calcError, uint mintAmount, ) = cwComptroller.calculateTrustedMintAmount(address(this), msg.sender, borrowAmount);
+        require(calcError == uint(Error.NO_ERROR), "TRUSTED_COMPTROLLER_CALCULATE_MINT_AMOUNT_FAILED");
+
+        /* Fail if mint fails */
+        (uint mintError, uint actualMintAmount) = mintFresh(msg.sender, mintAmount);
+        require (mintError == uint(Error.NO_ERROR), "TRUSTED_BORROW_MINT_FRESH_FAILED");
+
+        /* Fail if borrow fails */
+        uint borrowError = borrowFresh(msg.sender, borrowAmount);
+        require (borrowError == uint(Error.NO_ERROR), "TRUSTED_BORROW_BORROW_FRESH_FAILED");
+
+        return (uint(Error.NO_ERROR), actualMintAmount);
+    }
+
+    /**
+     * @notice Trusted sender repays their own borrow
+     * @param repayAmount The amount to repay
+     * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual repayment amount.
+     */
+    function trustedRepayBorrowInternal(uint repayAmount) internal nonReentrant returns (uint, uint) {
+        uint accrueError = accrueInterest();
+        if (accrueError != uint(Error.NO_ERROR)) {
+            // accrueInterest emits logs on errors
+            return (fail(Error(accrueError), FailureInfo.TRUSTED_REPAY_ACCRUE_INTEREST_FAILED), 0);
+        }
+
+        /* Fail if repayBorrow fails */
+        (uint repayBorrowError, uint actualRepayAmount) = repayBorrowFresh(msg.sender, msg.sender, repayAmount);
+        require (repayBorrowError == uint(Error.NO_ERROR), "TRUSTED_REPAY_REPAY_FRESH_FAILED");
+
+        /* Fail if calculate collateral fails*/
+        CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
+        (uint calcError, uint redeemTokens, ) = cwComptroller.calculateTrustedRedeemAmount(address(this), msg.sender, repayAmount);
+        require(calcError == uint(Error.NO_ERROR), "TRUSTED_COMPTROLLER_CALCULATE_REDEEM_AMOUNT_FAILED");
+
+        /* Fail if redeem fails */
+        uint redeemError = redeemFresh(msg.sender, redeemTokens, 0);
+        require (redeemError == uint(Error.NO_ERROR), "TRUSTED_REPAY_REDEEM_FRESH_FAILED");
+
+        return (uint(Error.NO_ERROR), actualRepayAmount);
+    }
 }

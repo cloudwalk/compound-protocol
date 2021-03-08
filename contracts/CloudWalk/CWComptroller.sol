@@ -233,7 +233,7 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
         }        
 
         if (markets[cToken].trustedBorrowers[minter].exists) {                        
-            (uint oErr, uint canBorrowAmount) = canTrustBorrowAmountInternal(cToken, minter, markets[cToken].trustedBorrowers[minter].allowance);
+            (uint oErr, , uint canBorrowAmount) = canTrustBorrowAmountInternal(cToken, minter, markets[cToken].trustedBorrowers[minter].allowance);
             if (oErr != 0) { 
                 return oErr;
             }  
@@ -1143,7 +1143,7 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
 
     function getTrustedBorrower(address cToken, address borrower) external view returns (bool, uint, uint) {    
         TrustedAccount memory trustedBorrower = markets[cToken].trustedBorrowers[borrower];         
-        (,uint canBorrowAmount) = canTrustBorrowAmountInternal(cToken, borrower, trustedBorrower.allowance);
+        (, uint canBorrowAmount, ) = canTrustBorrowAmountInternal(cToken, borrower, trustedBorrower.allowance);
         return (trustedBorrower.exists, trustedBorrower.allowance, canBorrowAmount);
     }
 
@@ -1158,9 +1158,83 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
         return (uint(Error.NO_ERROR), canSupplyAmount);
     }     
 
-    function canTrustBorrowAmountInternal(address cToken, address borrower, uint allowance) internal view returns (uint, uint) {
+    function canTrustBorrowAmountInternal(address cToken, address borrower, uint allowance) internal view returns (uint, uint, uint) {
         uint borrowBalance = CToken(cToken).borrowBalanceStored(borrower);
         uint canBorrowAmount = allowance > borrowBalance ? allowance - borrowBalance : 0;
-        return (uint(Error.NO_ERROR), canBorrowAmount);
-    }    
+        (, uint mintAmount, ) = calculateTrustedMintAmount(cToken, borrower, canBorrowAmount);
+        return (uint(Error.NO_ERROR), canBorrowAmount, mintAmount);
+    }
+
+    struct TrustedMintAmountVars {
+        uint liquidity;
+        uint shortfall;
+        uint mintAmount;
+        Exp collateralFactor;
+        Exp oraclePrice;
+    }
+
+    function calculateTrustedMintAmount(address cToken, address borrower, uint borrowAmount) public view returns (uint, uint, uint) {
+        TrustedMintAmountVars memory vars;
+        Error accError;
+
+        if(borrowAmount == 0) {
+            return(uint(Error.NO_ERROR), 0, 0);
+        } else {
+            (accError, vars.liquidity, vars.shortfall) = getHypotheticalAccountLiquidityInternal(borrower, CToken(cToken), 0, borrowAmount);
+            if (accError != Error.NO_ERROR) {
+                return (uint(accError), 0, 0);
+            }
+
+            if (vars.liquidity > 0) {
+                return (uint(Error.NO_ERROR), 0, 0);
+            }
+
+            vars.collateralFactor = Exp({mantissa: markets[cToken].collateralFactorMantissa});
+            vars.oraclePrice = Exp({mantissa: oracle.getUnderlyingPrice(CToken(cToken))});
+            vars.mintAmount = div_(div_(vars.shortfall, vars.oraclePrice), vars.collateralFactor);
+
+            uint addon = 1; // prevent liquidity/shortfall truncate issue
+            return(uint(Error.NO_ERROR), add_(vars.mintAmount, addon), addon);
+        }
+    }
+
+    struct TrustedRedeemAmountVars {
+        uint liquidity;
+        uint shortfall;
+        uint reedemTokens;
+        Exp collateralFactor;
+        Exp exchangeRate;
+        Exp oraclePrice;
+    }
+
+    function calculateTrustedRedeemAmount(address cToken, address repayer, uint repayAmount) external view returns (uint, uint, uint) {
+        TrustedRedeemAmountVars memory vars;
+        Error accError;
+        uint ssError;
+
+        (accError, vars.liquidity, vars.shortfall) = getHypotheticalAccountLiquidityInternal(repayer, CToken(cToken), 0, 0);
+        if (accError != Error.NO_ERROR) {
+            return (uint(accError), 0, 0);
+        }
+
+        if (vars.shortfall > 0) {
+            return (uint(Error.NO_ERROR), 0, 0);
+        }
+
+        if (repayAmount == uint(-1)) { // redeem entire balance of cTokens
+            (ssError, vars.reedemTokens,,) = CToken(cToken).getAccountSnapshot(repayer);
+            if (ssError != 0) {
+                return (uint(Error.SNAPSHOT_ERROR), 0, 0);
+            }
+        } else { // redeem all available liquidity
+            vars.collateralFactor = Exp({mantissa: markets[cToken].collateralFactorMantissa});
+            vars.exchangeRate = Exp({mantissa: CToken(cToken).exchangeRateStored()});
+                vars.oraclePrice = Exp({mantissa: oracle.getUnderlyingPrice(CToken(cToken))});
+                vars.reedemTokens = div_(div_(div_(vars.liquidity, vars.oraclePrice),
+                    vars.collateralFactor),
+                    vars.exchangeRate);
+        }
+
+        return(uint(Error.NO_ERROR), vars.reedemTokens, 0);
+    }
 }
