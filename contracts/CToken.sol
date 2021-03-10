@@ -530,7 +530,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         (
             bool isTrusted,
             address collateralBank
-        ) = checkForTrustedMint(minter, mintAmount);
+        ) = isTrustedBorrowMint(minter, mintAmount);
         address transferInFrom = isTrusted ? collateralBank : minter;
         vars.actualMintAmount = doTransferIn(transferInFrom, mintAmount);
 
@@ -701,7 +701,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         (
             bool isTrusted,
             address payable collatoralBank
-        ) = checkForTrustedRedeem(redeemer, vars.redeemAmount);
+        ) = isTrustedBorrowRedeem(redeemer, vars.redeemAmount);
         address payable transferOutTo = isTrusted ? collatoralBank : redeemer;
         doTransferOut(transferOutTo, vars.redeemAmount);
 
@@ -910,6 +910,10 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
          */
         (vars.mathErr, vars.accountBorrowsNew) = subUInt(vars.accountBorrows, vars.actualRepayAmount);
         require(vars.mathErr == MathError.NO_ERROR, "REPAY_BORROW_NEW_ACCOUNT_BORROW_BALANCE_CALCULATION_FAILED");
+
+        if (vars.actualRepayAmount > totalBorrows) {
+            totalBorrows = vars.actualRepayAmount;
+        }
 
         (vars.mathErr, vars.totalBorrowsNew) = subUInt(totalBorrows, vars.actualRepayAmount);
         require(vars.mathErr == MathError.NO_ERROR, "REPAY_BORROW_NEW_TOTAL_BALANCE_CALCULATION_FAILED");
@@ -1446,9 +1450,13 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
 
     /*** Trusted ***/
 
-    function checkForTrustedMint(address minter, uint mintAmount) public returns (bool, address) {
+    /**
+     * @dev Checks if mint should be executed as a 'trusted' mint and asset tokens should be transferred in from the collateral bank.
+     * Returns true and collateral bank addrees if mint should be executed as a 'trusted' mint.
+     */
+    function isTrustedBorrowMint(address minter, uint mintAmount) internal returns (bool, address) {
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
-        if (cwComptroller.isTrustedMint(address(this), minter, mintAmount)) {
+        if (cwComptroller.isTrustedBorrowMint(address(this), minter, mintAmount)) {
             address bankAddress = cwComptroller.collateralBankAddress(address(this));
             require(bankAddress != address(0), "trusted bank address");
             return (true, bankAddress);
@@ -1457,9 +1465,13 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         }
     }
 
-    function checkForTrustedRedeem(address payable redeemer, uint redeemAmount) public returns (bool, address payable) {
+    /**
+     * @dev Checks if redeem should be executed as a 'trusted' redeem and asset tokens should be transferred out to the collateral bank.
+     * Returns true and collateral bank addrees if redeem should be executed as a 'trusted' redeem.
+     */
+    function isTrustedBorrowRedeem(address payable redeemer, uint redeemAmount) internal returns (bool, address payable) {
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
-        if (cwComptroller.isTrustedRedeem(address(this), redeemer, redeemAmount)) {
+        if (cwComptroller.isTrustedBorrowRedeem(address(this), redeemer, redeemAmount)) {
             address payable bankAddress = cwComptroller.collateralBankAddress(address(this));
             require(bankAddress != address(0), "trusted bank address");
             return (true, bankAddress);

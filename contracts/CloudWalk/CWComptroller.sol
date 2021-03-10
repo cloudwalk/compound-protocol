@@ -233,12 +233,12 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
         }
 
         if (markets[cToken].trustedBorrowers[minter].exists) {
-            (uint oErr, , uint canBorrowAmount) = canTrustBorrowAmountInternal(cToken, minter, markets[cToken].trustedBorrowers[minter].allowance);
+            (uint oErr, , uint allowedMintAmount) = canTrustBorrowAmountInternal(cToken, minter, markets[cToken].trustedBorrowers[minter].allowance);
             if (oErr != 0) {
                 return oErr;
             }
 
-            if (canBorrowAmount < mintAmount) {
+            if (allowedMintAmount < mintAmount) {
                 return uint(Error.BORROW_BALANCE_OVERFLOW);
             }
 
@@ -246,12 +246,12 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
         }
 
         if (markets[cToken].trustedSuppliers[minter].exists) {
-            (uint oErr, uint canSupplyAmount) = canTrustSupplyAmountInternal(cToken, minter, markets[cToken].trustedSuppliers[minter].allowance);
+            (uint oErr, uint allowedMintAmount) = canTrustSupplyAmountInternal(cToken, minter, markets[cToken].trustedSuppliers[minter].allowance);
             if (oErr != 0) {
                 return oErr;
             }
 
-            if (canSupplyAmount < mintAmount) {
+            if (allowedMintAmount < mintAmount) {
                 return uint(Error.SUPPLY_BALANCE_OVERFLOW);
             }
 
@@ -1066,12 +1066,12 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
         return address(uint160(markets[cToken].collateralBankAddress));
     }
 
-    function isTrustedMint(address cToken, address minter, uint mintAmount) external view returns (bool) {
+    function isTrustedBorrowMint(address cToken, address minter, uint mintAmount) external view returns (bool) {
         /// @notice mintAllowed() decides if mint should be allowed
         return markets[cToken].trustedBorrowers[minter].exists;
     }
 
-    function isTrustedRedeem(address cToken, address payable redeemer, uint redeemAmount) external view returns (bool) {
+    function isTrustedBorrowRedeem(address cToken, address payable redeemer, uint redeemAmount) external view returns (bool) {
         /// @notice redeemAllowed() decides if redeed should be allowed
         return markets[cToken].trustedBorrowers[redeemer].exists;
     }
@@ -1150,7 +1150,7 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
     function canTrustSupplyAmountInternal(address cToken, address supplier, uint allowance) internal view returns (uint, uint) {
         // Read the balances and exchange rate from the cToken
         (uint oErr, uint cTokenBalance, , uint exchangeRateMantissa) = CToken(cToken).getAccountSnapshot(supplier);
-        if (oErr != 0) { // semi-opaque error code, we assume NO_ERROR == 0 is invariant between upgrades
+        if (oErr != 0) {
             return (uint(Error.SNAPSHOT_ERROR), 0);
         }
         uint uderlyingBalance = mul_ScalarTruncate(Exp({mantissa: exchangeRateMantissa}), cTokenBalance);
@@ -1161,8 +1161,8 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, CWComptr
     function canTrustBorrowAmountInternal(address cToken, address borrower, uint allowance) internal view returns (uint, uint, uint) {
         uint borrowBalance = CToken(cToken).borrowBalanceStored(borrower);
         uint canBorrowAmount = allowance > borrowBalance ? allowance - borrowBalance : 0;
-        (, uint mintAmount, ) = calculateTrustedMintAmount(cToken, borrower, canBorrowAmount);
-        return (uint(Error.NO_ERROR), canBorrowAmount, mintAmount);
+        (, uint canMintAmount, ) = calculateTrustedMintAmount(cToken, borrower, canBorrowAmount);
+        return (uint(Error.NO_ERROR), canBorrowAmount, canMintAmount);
     }
 
     struct TrustedMintAmountVars {
