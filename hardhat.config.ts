@@ -1,5 +1,6 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
+import "@openzeppelin/hardhat-upgrades";
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -17,20 +18,33 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
 
 export default {
   solidity: {
-    version: "0.5.16",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 1000
+    compilers: [
+      {
+        version: "0.7.6",
+          settings: {
+            optimizer: {
+            enabled: true,
+            runs: 1000
+          }
+        }
+      },
+      {
+        version: "0.5.16",
+          settings: {
+            optimizer: {
+            enabled: true,
+            runs: 1000
+          }
+        }
       }
-    }
+    ]
   },
-  networks: {    
+  networks: {
     hardhat: {
-    },    
+    },
     ganache: {
       url: "http://127.0.0.1:7545",
-      accounts: "remote"      
-    },
+      accounts: "remote"
+    }
   }
 };
