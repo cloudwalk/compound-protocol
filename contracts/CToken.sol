@@ -486,6 +486,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         uint totalSupplyNew;
         uint accountTokensNew;
         uint actualMintAmount;
+        uint totalTrustedSupplyNew;
     }
 
     /**
@@ -530,7 +531,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         (
             bool isTrusted,
             address collateralBank
-        ) = isTrustedBorrowMint(minter, mintAmount);
+        ) = isTrustedMint(minter, mintAmount);
         address transferInFrom = isTrusted ? collateralBank : minter;
         vars.actualMintAmount = doTransferIn(transferInFrom, mintAmount);
 
@@ -552,6 +553,11 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
 
         (vars.mathErr, vars.accountTokensNew) = addUInt(accountTokens[minter], vars.mintTokens);
         require(vars.mathErr == MathError.NO_ERROR, "MINT_NEW_ACCOUNT_BALANCE_CALCULATION_FAILED");
+
+        if (isTrusted) { // Calculate and update totalTrustedSupply on trusted mint
+            (vars.mathErr, totalTrustedSupply) = addUInt(totalTrustedSupply, vars.mintTokens);
+            require(vars.mathErr == MathError.NO_ERROR, "MINT_NEW_TOTAL_TRUSTED_SUPPLY_CALCULATION_FAILED");
+        }
 
         /* We write previously calculated values into storage */
         totalSupply = vars.totalSupplyNew;
@@ -701,9 +707,14 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         (
             bool isTrusted,
             address payable collatoralBank
-        ) = isTrustedBorrowRedeem(redeemer, vars.redeemAmount);
+        ) = isTrustedRedeem(redeemer, vars.redeemAmount);
         address payable transferOutTo = isTrusted ? collatoralBank : redeemer;
         doTransferOut(transferOutTo, vars.redeemAmount);
+
+        if (isTrusted) { // Calculate and update totalTrustedSupply on trusted redeem
+            (vars.mathErr, totalTrustedSupply) =  subUInt(totalTrustedSupply, vars.redeemTokens);
+            require(vars.mathErr == MathError.NO_ERROR, "REDEEM_NEW_TOTAL_SUPPLY_CALCULATION_FAILED");
+        }
 
         /* We write previously calculated values into storage */
         totalSupply = vars.totalSupplyNew;
@@ -1178,7 +1189,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
 
         // Ensure invoke comptroller.isCWComptroller() returns true
         require(
-            CWComptrollerInterface(address(newComptroller)).isCWComptroller(), 
+            CWComptrollerInterface(address(newComptroller)).isCWComptroller(),
             "must be CWComptroller");
 
         // Set market's comptroller to newComptroller
@@ -1454,12 +1465,12 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
      * @dev Checks if mint should be executed as a 'trusted' mint and asset tokens should be transferred in from the collateral bank.
      * Returns true and collateral bank addrees if mint should be executed as a 'trusted' mint.
      */
-    function isTrustedBorrowMint(address minter, uint mintAmount) internal returns (bool, address) {
+    function isTrustedMint(address minter, uint mintAmount) internal returns (bool, address) {
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
-        if (cwComptroller.isTrustedBorrowMint(address(this), minter, mintAmount)) {
-            address bankAddress = cwComptroller.collateralBankAddress(address(this));
-            require(bankAddress != address(0), "trusted bank address");
-            return (true, bankAddress);
+        if (cwComptroller.isTrustedMint(address(this), minter, mintAmount)) {
+            address collateralBank = cwComptroller.collateralBank(address(this));
+            require(collateralBank != address(0), "Collateral bank zero address");
+            return (true, collateralBank);
         } else {
             return (false, address(0));
         }
@@ -1469,12 +1480,12 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
      * @dev Checks if redeem should be executed as a 'trusted' redeem and asset tokens should be transferred out to the collateral bank.
      * Returns true and collateral bank addrees if redeem should be executed as a 'trusted' redeem.
      */
-    function isTrustedBorrowRedeem(address payable redeemer, uint redeemAmount) internal returns (bool, address payable) {
+    function isTrustedRedeem(address payable redeemer, uint redeemAmount) internal returns (bool, address payable) {
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
-        if (cwComptroller.isTrustedBorrowRedeem(address(this), redeemer, redeemAmount)) {
-            address payable bankAddress = cwComptroller.collateralBankAddress(address(this));
-            require(bankAddress != address(0), "trusted bank address");
-            return (true, bankAddress);
+        if (cwComptroller.isTrustedRedeem(address(this), redeemer, redeemAmount)) {
+            address payable collateralBank = cwComptroller.collateralBank(address(this));
+            require(collateralBank != address(0), "Collateral bank zero address");
+            return (true, collateralBank);
         } else {
             return (false, address(0));
         }
@@ -1492,7 +1503,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
             return (fail(Error(accrueError), FailureInfo.TRUSTED_BORROW_ACCRUE_INTEREST_FAILED), 0);
         }
 
-        /* Fail if calculate collateral fails*/
+        /* Fail if calculate collateral fails */
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
         (uint calcError, uint mintAmount, ) = cwComptroller.calculateTrustedMintAmount(address(this), msg.sender, borrowAmount);
         require(calcError == uint(Error.NO_ERROR), "TRUSTED_COMPTROLLER_CALCULATE_MINT_AMOUNT_FAILED");
@@ -1524,7 +1535,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         (uint repayBorrowError, uint actualRepayAmount) = repayBorrowFresh(msg.sender, msg.sender, repayAmount);
         require (repayBorrowError == uint(Error.NO_ERROR), "TRUSTED_REPAY_REPAY_FRESH_FAILED");
 
-        /* Fail if calculate collateral fails*/
+        /* Fail if calculate collateral fails */
         CWComptrollerInterface cwComptroller = CWComptrollerInterface(address(comptroller));
         (uint calcError, uint redeemTokens, ) = cwComptroller.calculateTrustedRedeemAmount(address(this), msg.sender, repayAmount);
         require(calcError == uint(Error.NO_ERROR), "TRUSTED_COMPTROLLER_CALCULATE_REDEEM_AMOUNT_FAILED");

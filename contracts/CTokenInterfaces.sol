@@ -91,6 +91,11 @@ contract CTokenStorage {
     uint public totalSupply;
 
     /**
+     * @notice Total amount of tokens minted in trusted mode
+     */
+    uint public totalTrustedSupply;
+
+    /**
      * @notice Official record of token balances for each account
      */
     mapping (address => uint) internal accountTokens;

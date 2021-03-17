@@ -20,10 +20,8 @@ contract ComptrollerErrorReporter {
         SNAPSHOT_ERROR,
         TOO_MANY_ASSETS,
         TOO_MUCH_REPAY,
-        BORROW_UNTRUSTED_ACCOUNT,
-        SUPPLY_UNTRUSTED_ACCOUNT,
-        BORROW_BALANCE_OVERFLOW,
-        SUPPLY_BALANCE_OVERFLOW
+        UNTRUSTED_ACCOUNT,
+        BORROW_ALLOWANCE_OVERFLOW
     }
 
     enum FailureInfo {

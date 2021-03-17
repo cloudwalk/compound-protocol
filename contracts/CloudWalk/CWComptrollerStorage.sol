@@ -2,14 +2,9 @@ pragma solidity ^0.5.16;
 
 import "../CToken.sol";
 import "../ComptrollerStorage.sol";
+import "./CollateralBankInterface.sol";
 
 contract CWComptrollerV2Storage is ComptrollerV1Storage {
-    /// @notice Trusted account borrow allowance
-    struct TrustedAccount {
-        uint allowance;
-        bool exists;
-    }
-
     struct Market {
         /// @notice Whether or not this market is listed
         bool isListed;
@@ -21,23 +16,11 @@ contract CWComptrollerV2Storage is ComptrollerV1Storage {
          */
         uint collateralFactorMantissa;
 
-        /// @notice Whether or not this market allow untrusted borrowers
-        bool allowUntrustedBorrowers;
-
-        /// @notice Whether or not this market allow untrusted suppliers
-        bool allowUntrustedSuppliers;
-
         /// @notice Address of collateral bank for trusted borrows
         address collateralBankAddress;
 
         /// @notice Per-market mapping of "accounts in this asset"
         mapping(address => bool) accountMembership;
-
-        /// @notice Per-market mapping of "trusted" borrower
-        mapping(address => TrustedAccount) trustedBorrowers;
-
-        /// @notice Per-market mapping of "trusted" supplier
-        mapping(address => TrustedAccount) trustedSuppliers;
     }
 
     /**
