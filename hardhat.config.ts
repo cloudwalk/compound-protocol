@@ -16,5 +16,21 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
 });
 
 export default {
-  solidity: "0.5.16",
+    solidity: {
+        version: "0.5.16",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000
+          }
+        }
+      },
+      networks: {
+        hardhat: {
+        },
+        ganache: {
+          url: "http://127.0.0.1:7545",
+          accounts: "remote"
+        },
+      }
 };
