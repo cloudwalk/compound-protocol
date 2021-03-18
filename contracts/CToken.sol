@@ -726,6 +726,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         MathError mathErr;
         uint accountBorrows;
         uint accountBorrowsNew;
+        uint trustedBorrowsNew;
         uint totalBorrowsNew;
     }
 
@@ -768,6 +769,13 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
             return failOpaque(Error.MATH_ERROR, FailureInfo.BORROW_NEW_ACCOUNT_BORROW_BALANCE_CALCULATION_FAILED, uint(vars.mathErr));
         }
 
+        if(trustedBorrowers[borrower].exists) {
+            (vars.mathErr, vars.trustedBorrowsNew) = addUInt(trustedBorrows, borrowAmount);
+            if (vars.mathErr != MathError.NO_ERROR) {
+                return failOpaque(Error.MATH_ERROR, FailureInfo.TRUSTED_BORROW_NEW_TOTAL_BALANCE_CALCULATION_FAILED, uint(vars.mathErr));
+            }
+        }
+
         (vars.mathErr, vars.totalBorrowsNew) = addUInt(totalBorrows, borrowAmount);
         if (vars.mathErr != MathError.NO_ERROR) {
             return failOpaque(Error.MATH_ERROR, FailureInfo.BORROW_NEW_TOTAL_BALANCE_CALCULATION_FAILED, uint(vars.mathErr));
@@ -788,6 +796,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         /* We write the previously calculated values into storage */
         accountBorrows[borrower].principal = vars.accountBorrowsNew;
         accountBorrows[borrower].interestIndex = borrowIndex;
+        trustedBorrows = vars.trustedBorrowsNew;
         totalBorrows = vars.totalBorrowsNew;
 
         /* We emit a Borrow event */
@@ -1429,5 +1438,45 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         _notEntered = false;
         _;
         _notEntered = true; // get a gas-refund post-Istanbul
+    }
+
+    /*** Trsuted Accounts ***/
+
+    function getTrustedSupplier(address account) external returns (bool, uint) {
+        TrustedAccount memory supplier = trustedSuppliers[account];
+        return (supplier.exists, supplier.allowance);
+    }
+
+    function getTrustedBorrower(address account) external returns (bool, uint) {
+        TrustedAccount memory borrower = trustedBorrowers[account];
+        return (borrower.exists, borrower.allowance);
+    }
+
+    function _setTrustedSupplier(address account, bool exists, uint allowance) external returns (uint) {
+        if (msg.sender != admin) {
+            return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_SUPPLIER_ADMIN_CHECK);
+        }
+
+        TrustedAccount storage supplier = trustedSuppliers[account];
+        emit TrustedSupplier(account, supplier.exists, supplier.allowance, exists, allowance);
+
+        supplier.allowance = allowance;
+        supplier.exists = exists;
+
+        return uint(Error.NO_ERROR);
+    }
+
+    function _setTrustedBorrower(address account, bool exists, uint allowance) external returns (uint) {
+        if (msg.sender != admin) {
+            return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_BORROWER_ADMIN_CHECK);
+        }
+
+        TrustedAccount storage borrower = trustedBorrowers[account];
+        emit TrustedBorrower(account, borrower.exists, borrower.allowance, exists, allowance);
+
+        borrower.allowance = allowance;
+        borrower.exists = exists;
+
+        return uint(Error.NO_ERROR);
     }
 }

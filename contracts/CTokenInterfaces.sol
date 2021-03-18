@@ -82,6 +82,11 @@ contract CTokenStorage {
     uint public totalBorrows;
 
     /**
+     * @notice Total amount of trusted borrows of the underlying in this market
+     */
+    uint public trustedBorrows;
+
+    /**
      * @notice Total amount of reserves of the underlying held in this market
      */
     uint public totalReserves;
@@ -115,6 +120,24 @@ contract CTokenStorage {
      * @notice Mapping of account addresses to outstanding borrow balances
      */
     mapping(address => BorrowSnapshot) internal accountBorrows;
+
+    /**
+     * @notice Container for trusted account information
+     */
+    struct TrustedAccount {
+        uint allowance;
+        bool exists;
+    }
+
+    /**
+     * @notice Trusted suppliers mapping
+     */
+    mapping(address => TrustedAccount) internal trustedSuppliers;
+
+    /**
+     * @notice Trusted borrowers mapping
+     */
+    mapping(address => TrustedAccount) internal trustedBorrowers;
 }
 
 contract CTokenInterface is CTokenStorage {
@@ -209,6 +232,16 @@ contract CTokenInterface is CTokenStorage {
      */
     event Failure(uint error, uint info, uint detail);
 
+    /**
+     * @notice Event emitted when trusted supplier is configured
+     */
+    event TrustedSupplier(address indexed account, bool oldExists, uint oldAllowance, bool newExists, uint newAllowance);
+
+    /**
+     * @notice Event emitted when trusted borrower is configured
+     */
+    event TrustedBorrower(address indexed account, bool oldExists, uint oldAllowance, bool newExists, uint newAllowance);
+
 
     /*** User Interface ***/
 
@@ -239,6 +272,13 @@ contract CTokenInterface is CTokenStorage {
     function _setReserveFactor(uint newReserveFactorMantissa) external returns (uint);
     function _reduceReserves(uint reduceAmount) external returns (uint);
     function _setInterestRateModel(InterestRateModel newInterestRateModel) public returns (uint);
+
+    /*** Trusted Functions ***/
+
+    function getTrustedSupplier(address account) external returns (bool, uint);
+    function getTrustedBorrower(address account) external returns (bool, uint);
+    function _setTrustedSupplier(address account, bool exists, uint allowance) external returns (uint);
+    function _setTrustedBorrower(address account, bool exists, uint allowance) external returns (uint);
 }
 
 contract CErc20Storage {
