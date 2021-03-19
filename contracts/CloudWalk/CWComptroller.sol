@@ -11,7 +11,7 @@ import "./CWComptrollerStorage.sol";
  * @title CloudWalk's Comptroller Contract
  * @author CloudWalk
  */
-contract Comptroller is CWComptrollerV4Storage, ComptrollerInterface, ComptrollerErrorReporter, ExponentialNoError {
+contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, ComptrollerErrorReporter, ExponentialNoError {
     /// @notice Emitted when an admin supports a market
     event MarketListed(CToken cToken);
 
@@ -220,7 +220,7 @@ contract Comptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrolle
             return uint(Error.MARKET_NOT_LISTED);
         }
 
-        (bool exists, uint allowance) = CToken(cToken).getTrustedSupplier(minter);
+        (bool exists, ) = CToken(cToken).getTrustedSupplier(minter);
         if (exists) {
             (Error err, , uint shortfall) = getTrustedSupplierLiquidityInternal(minter, CToken(cToken), mintAmount);
             if (err != Error.NO_ERROR) {
@@ -229,9 +229,7 @@ contract Comptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrolle
             if (shortfall > 0) {
                 return uint(Error.TRUSTED_SUPPLY_ALLOWANCE_OVERFLOW);
             }
-        }
-
-        if (markets[cToken].onlyTrustedSuppliers) {
+        } else if (markets[cToken].onlyTrustedSuppliers) {
             return uint(Error.UNTRUSTED_SUPPLIER_ACCOUNT);
         }
 
@@ -356,7 +354,7 @@ contract Comptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrolle
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (bool exists, uint allowance) = CToken(cToken).getTrustedBorrower(borrower);
+        (bool exists, ) = CToken(cToken).getTrustedBorrower(borrower);
         if (exists) {
             (Error err, , uint shortfall) = getTrustedBorrowerLiquidityInternal(borrower, CToken(cToken), borrowAmount);
             if (err != Error.NO_ERROR) {
@@ -365,18 +363,16 @@ contract Comptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrolle
             if (shortfall > 0) {
                 return uint(Error.TRUSTED_BORROW_ALLOWANCE_OVERFLOW);
             }
-        }
-
-        if (markets[cToken].onlyTrustedBorrowers) {
+        } else if (markets[cToken].onlyTrustedBorrowers) {
             return uint(Error.UNTRUSTED_BORROWER_ACCOUNT);
-        }
-
-        (Error err, , uint shortfall) = getHypotheticalAccountLiquidityInternal(borrower, CToken(cToken), 0, borrowAmount);
-        if (err != Error.NO_ERROR) {
-            return uint(err);
-        }
-        if (shortfall > 0) {
-            return uint(Error.INSUFFICIENT_LIQUIDITY);
+        } else {
+            (Error err, , uint shortfall) = getHypotheticalAccountLiquidityInternal(borrower, CToken(cToken), 0, borrowAmount);
+            if (err != Error.NO_ERROR) {
+                return uint(err);
+            }
+            if (shortfall > 0) {
+                return uint(Error.INSUFFICIENT_LIQUIDITY);
+            }
         }
 
         return uint(Error.NO_ERROR);
