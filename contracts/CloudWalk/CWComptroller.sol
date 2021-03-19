@@ -1080,7 +1080,7 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrol
         uint borrowBalance;
 
         // Read trusted borrower data
-        (bool exists, uint allowance) = cToken.getTrustedBorrower(account);
+        (bool exists, uint borrowAllowance) = cToken.getTrustedBorrower(account);
         if (!exists) {
             return (Error.UNTRUSTED_BORROWER_ACCOUNT, 0, 0);
         }
@@ -1094,10 +1094,10 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrol
         borrowBalance = add_(borrowBalance, borrowAmount);
 
         // These are safe, as the underflow condition is checked first
-        if (allowance > borrowBalance) {
-            return (Error.NO_ERROR, allowance - borrowBalance, 0);
+        if (borrowAllowance > borrowBalance) {
+            return (Error.NO_ERROR, borrowAllowance - borrowBalance, 0);
         } else {
-            return (Error.NO_ERROR, 0, borrowBalance - allowance);
+            return (Error.NO_ERROR, 0, borrowBalance - borrowAllowance);
         }
     }
 
@@ -1132,7 +1132,7 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrol
         uint exchangeRateMantissa;
 
         // Read trusted supplier data
-        (bool exists, uint allowance) = cToken.getTrustedSupplier(account);
+        (bool exists, uint supplyAllowance) = cToken.getTrustedSupplier(account);
         if (!exists) {
             return (Error.UNTRUSTED_SUPPLIER_ACCOUNT, 0, 0);
         }
@@ -1146,10 +1146,10 @@ contract CWComptroller is CWComptrollerV4Storage, ComptrollerInterface, Comptrol
         supplyBalance = mul_ScalarTruncateAddUInt(Exp({mantissa: exchangeRateMantissa}), supplyBalance, supplyAmount);
 
         // These are safe, as the underflow condition is checked first
-        if (allowance > supplyBalance) {
-            return (Error.NO_ERROR, allowance - supplyBalance, 0);
+        if (supplyAllowance > supplyBalance) {
+            return (Error.NO_ERROR, supplyAllowance - supplyBalance, 0);
         } else {
-            return (Error.NO_ERROR, 0, supplyBalance - allowance);
+            return (Error.NO_ERROR, 0, supplyBalance - supplyAllowance);
         }
     }
 

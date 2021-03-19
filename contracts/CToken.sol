@@ -1452,29 +1452,29 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         return (borrower.exists, borrower.allowance);
     }
 
-    function _setTrustedSupplier(address account, bool exists, uint allowance) external returns (uint) {
+    function _setTrustedSupplier(address account, bool exists, uint supplyAllowance) external returns (uint) {
         if (msg.sender != admin) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_SUPPLIER_ADMIN_CHECK);
         }
 
         TrustedAccount storage supplier = trustedSuppliers[account];
-        emit TrustedSupplier(account, supplier.exists, supplier.allowance, exists, allowance);
+        emit TrustedSupplier(account, supplier.exists, supplier.allowance, exists, supplyAllowance);
 
-        supplier.allowance = allowance;
+        supplier.allowance = supplyAllowance;
         supplier.exists = exists;
 
         return uint(Error.NO_ERROR);
     }
 
-    function _setTrustedBorrower(address account, bool exists, uint allowance) external returns (uint) {
+    function _setTrustedBorrower(address account, bool exists, uint borrowAllowance) external returns (uint) {
         if (msg.sender != admin) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_BORROWER_ADMIN_CHECK);
         }
 
         TrustedAccount storage borrower = trustedBorrowers[account];
-        emit TrustedBorrower(account, borrower.exists, borrower.allowance, exists, allowance);
+        emit TrustedBorrower(account, borrower.exists, borrower.allowance, exists, borrowAllowance);
 
-        borrower.allowance = allowance;
+        borrower.allowance = borrowAllowance;
         borrower.exists = exists;
 
         return uint(Error.NO_ERROR);

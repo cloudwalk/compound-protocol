@@ -277,8 +277,8 @@ contract CTokenInterface is CTokenStorage {
 
     function getTrustedSupplier(address account) external view returns (bool, uint);
     function getTrustedBorrower(address account) external view returns (bool, uint);
-    function _setTrustedSupplier(address account, bool exists, uint allowance) external returns (uint);
-    function _setTrustedBorrower(address account, bool exists, uint allowance) external returns (uint);
+    function _setTrustedSupplier(address account, bool exists, uint supplyAllowance) external returns (uint);
+    function _setTrustedBorrower(address account, bool exists, uint borrowAllowance) external returns (uint);
 }
 
 contract CErc20Storage {
