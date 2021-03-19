@@ -1442,12 +1442,12 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
 
     /*** Trsuted Accounts ***/
 
-    function getTrustedSupplier(address account) external returns (bool, uint) {
+    function getTrustedSupplier(address account) external view returns (bool, uint) {
         TrustedAccount memory supplier = trustedSuppliers[account];
         return (supplier.exists, supplier.allowance);
     }
 
-    function getTrustedBorrower(address account) external returns (bool, uint) {
+    function getTrustedBorrower(address account) external view returns (bool, uint) {
         TrustedAccount memory borrower = trustedBorrowers[account];
         return (borrower.exists, borrower.allowance);
     }
