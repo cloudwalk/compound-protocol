@@ -19,7 +19,11 @@ contract ComptrollerErrorReporter {
         REJECTION,
         SNAPSHOT_ERROR,
         TOO_MANY_ASSETS,
-        TOO_MUCH_REPAY
+        TOO_MUCH_REPAY,
+        UNTRUSTED_SUPPLIER_ACCOUNT,
+        UNTRUSTED_BORROWER_ACCOUNT,
+        TRUSTED_SUPPLY_ALLOWANCE_OVERFLOW,
+        TRUSTED_BORROW_ALLOWANCE_OVERFLOW
     }
 
     enum FailureInfo {
