@@ -1452,8 +1452,12 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         return (borrower.exists, borrower.allowance);
     }
 
+    function getTrustedAdmin(address account) external view returns (bool) {
+        return trustedAdmins[account];
+    }
+
     function _setTrustedSupplier(address account, bool exists, uint supplyAllowance) external returns (uint) {
-        if (msg.sender != admin) {
+        if (msg.sender != admin && !trustedAdmins[msg.sender]) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_SUPPLIER_ADMIN_CHECK);
         }
 
@@ -1467,7 +1471,7 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
     }
 
     function _setTrustedBorrower(address account, bool exists, uint borrowAllowance) external returns (uint) {
-        if (msg.sender != admin) {
+        if (msg.sender != admin  && !trustedAdmins[msg.sender]) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_BORROWER_ADMIN_CHECK);
         }
 
@@ -1476,6 +1480,17 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
 
         borrower.allowance = borrowAllowance;
         borrower.exists = exists;
+
+        return uint(Error.NO_ERROR);
+    }
+
+    function _setTrustedAdmin(address account, bool enabled) external returns (uint) {
+        if (msg.sender != admin) {
+            return fail(Error.UNAUTHORIZED, FailureInfo.SET_TRUSTED_ADMIN_ACCOUNT_ADMIN_CHECK);
+        }
+
+        trustedAdmins[account] = enabled;
+        emit TrustedAdmin(account, enabled);
 
         return uint(Error.NO_ERROR);
     }

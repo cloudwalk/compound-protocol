@@ -138,6 +138,11 @@ contract CTokenStorage {
      * @notice Trusted borrowers mapping
      */
     mapping(address => TrustedAccount) internal trustedBorrowers;
+
+    /**
+     * @notice Trusted admins mapping
+     */
+    mapping(address => bool) internal trustedAdmins;
 }
 
 contract CTokenInterface is CTokenStorage {
@@ -242,6 +247,10 @@ contract CTokenInterface is CTokenStorage {
      */
     event TrustedBorrower(address indexed account, bool oldExists, uint oldAllowance, bool newExists, uint newAllowance);
 
+    /**
+     * @notice Event emitted when trusted admin is configured
+     */
+    event TrustedAdmin(address indexed account, bool enabled);
 
     /*** User Interface ***/
 
@@ -275,8 +284,10 @@ contract CTokenInterface is CTokenStorage {
 
     /*** Trusted Functions ***/
 
+    function getTrustedAdmin(address account) external view returns (bool);
     function getTrustedSupplier(address account) external view returns (bool, uint);
     function getTrustedBorrower(address account) external view returns (bool, uint);
+    function _setTrustedAdmin(address account, bool enabled) external returns (uint);
     function _setTrustedSupplier(address account, bool exists, uint supplyAllowance) external returns (uint);
     function _setTrustedBorrower(address account, bool exists, uint borrowAllowance) external returns (uint);
 }

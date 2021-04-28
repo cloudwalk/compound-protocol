@@ -477,6 +477,11 @@ contract CErc20Delegator is CTokenInterface, CErc20Interface, CDelegatorInterfac
 
     /*** Trusted Accouns ***/
 
+    function getTrustedAdmin(address account) external view returns (bool) {
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getTrustedAdmin(address)", account));
+        return abi.decode(data, (bool));
+    }
+
     function getTrustedSupplier(address account) external view returns (bool, uint) {
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getTrustedSupplier(address)", account));
         return abi.decode(data, (bool, uint));
@@ -485,6 +490,11 @@ contract CErc20Delegator is CTokenInterface, CErc20Interface, CDelegatorInterfac
     function getTrustedBorrower(address account) external view returns (bool, uint) {
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getTrustedBorrower(address)", account));
         return abi.decode(data, (bool, uint));
+    }
+
+    function _setTrustedAdmin(address account, bool enabled) external returns (uint) {
+        bytes memory data = delegateToImplementation(abi.encodeWithSignature("_setTrustedAdmin(address,bool)", account, enabled));
+        return abi.decode(data, (uint));
     }
 
     function _setTrustedSupplier(address account, bool exists, uint supplyAllowance) external returns (uint) {
