@@ -726,7 +726,6 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         MathError mathErr;
         uint accountBorrows;
         uint accountBorrowsNew;
-        uint trustedBorrowsNew;
         uint totalBorrowsNew;
     }
 
@@ -769,13 +768,6 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
             return failOpaque(Error.MATH_ERROR, FailureInfo.BORROW_NEW_ACCOUNT_BORROW_BALANCE_CALCULATION_FAILED, uint(vars.mathErr));
         }
 
-        if(trustedBorrowers[borrower].exists) {
-            (vars.mathErr, vars.trustedBorrowsNew) = addUInt(trustedBorrows, borrowAmount);
-            if (vars.mathErr != MathError.NO_ERROR) {
-                return failOpaque(Error.MATH_ERROR, FailureInfo.TRUSTED_BORROW_NEW_TOTAL_BALANCE_CALCULATION_FAILED, uint(vars.mathErr));
-            }
-        }
-
         (vars.mathErr, vars.totalBorrowsNew) = addUInt(totalBorrows, borrowAmount);
         if (vars.mathErr != MathError.NO_ERROR) {
             return failOpaque(Error.MATH_ERROR, FailureInfo.BORROW_NEW_TOTAL_BALANCE_CALCULATION_FAILED, uint(vars.mathErr));
@@ -796,7 +788,6 @@ contract CToken is CTokenInterface, Exponential, TokenErrorReporter {
         /* We write the previously calculated values into storage */
         accountBorrows[borrower].principal = vars.accountBorrowsNew;
         accountBorrows[borrower].interestIndex = borrowIndex;
-        trustedBorrows = vars.trustedBorrowsNew;
         totalBorrows = vars.totalBorrowsNew;
 
         /* We emit a Borrow event */
